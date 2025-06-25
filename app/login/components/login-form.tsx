@@ -16,7 +16,7 @@ export function LoginForm() {
   // Redirecionar em caso de sucesso
   React.useEffect(() => {
     if (state?.success) {
-      router.push("/crm/dashboard")
+      router.push("/erp/dashboard")
     }
   }, [state?.success, router])
 
