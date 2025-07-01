@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
+import { createService } from "@/lib/supabase-services"
 
 export default function CriarServicoPage() {
   const router = useRouter()
@@ -52,15 +53,16 @@ export default function CriarServicoPage() {
     setLoading(true)
 
     try {
-      // Simular criação do serviço
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
+      await createService({
+        name: formData.name,
+        description: formData.description,
+        price: Number(formData.price),
+        status: formData.status as "ativo" | "inativo",
+      })
       toast({
         title: "Sucesso!",
         description: "Serviço criado com sucesso.",
       })
-
-      // Voltar para a lista
       router.push("/erp/servicos")
     } catch (error) {
       toast({
