@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { getMockCustomerById, updateCustomer } from "@/lib/mock-data"
+import { getCustomerById, updateCustomer } from "@/lib/supabase-customers"
 import type { Customer } from "@/lib/mock-data"
 
 interface EditCustomerFormProps {
@@ -31,7 +31,6 @@ export function EditCustomerForm({ customerId }: EditCustomerFormProps) {
     city: "",
     state: "",
     zip_code: "",
-    notes: "",
     status: "",
   })
 
@@ -45,21 +44,17 @@ export function EditCustomerForm({ customerId }: EditCustomerFormProps) {
   const loadCustomer = async () => {
     try {
       setCustomerLoading(true)
-      // Simular carregamento
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      const customer = getMockCustomerById(customerId)
+      const customer = await getCustomerById(customerId)
       if (customer) {
         setFormData({
-          name: customer.name,
+          name: customer.name || "",
           email: customer.email || "",
-          phone: customer.phone,
+          phone: customer.phone || "",
           address: customer.address || "",
           city: customer.city || "",
           state: customer.state || "",
           zip_code: customer.zip_code || "",
-          notes: customer.notes || "",
-          status: customer.status,
+          status: customer.status || "",
         })
       } else {
         throw new Error("Cliente não encontrado")
@@ -79,16 +74,13 @@ export function EditCustomerForm({ customerId }: EditCustomerFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-
     try {
-      // Atualizar cliente
-      updateCustomer(customerId, formData as Partial<Customer>)
-
+      // Atualizar cliente no Supabase
+      await updateCustomer(customerId, formData)
       toast({
         title: "Sucesso",
         description: "Cliente atualizado com sucesso!",
       })
-
       router.push(`/crm/clientes/${customerId}`)
     } catch (error) {
       toast({
@@ -230,18 +222,6 @@ export function EditCustomerForm({ customerId }: EditCustomerFormProps) {
                   placeholder="00000-000"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Observações</Label>
-              <Textarea
-                id="notes"
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                placeholder="Informações adicionais sobre o cliente..."
-                rows={3}
-              />
             </div>
 
             <div className="flex gap-3 pt-4">

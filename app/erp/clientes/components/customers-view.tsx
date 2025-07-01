@@ -9,8 +9,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { getMockCustomers } from "@/lib/mock-data"
-import type { Customer } from "@/lib/mock-data"
+import { getCustomers, Customer, deleteCustomer } from "@/lib/supabase-customers"
 
 export function CustomersView() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -26,15 +25,15 @@ export function CustomersView() {
     if (searchTerm) {
       const filtered = customers.filter(
         (customer) =>
-          customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          customer.phone.includes(searchTerm) ||
-          customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          customer.cars?.some(
-            (car) =>
-              car.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              car.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              car.license_plate.toLowerCase().includes(searchTerm.toLowerCase()),
-          ),
+          typeof customer.name === "string" && customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (typeof customer.phone === "string" && customer.phone.includes(searchTerm)) ||
+          (typeof customer.email === "string" && customer.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (Array.isArray((customer as any).cars) && (customer as any).cars.some(
+            (car: any) =>
+              typeof car.brand === "string" && car.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              typeof car.model === "string" && car.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              typeof car.license_plate === "string" && car.license_plate.toLowerCase().includes(searchTerm.toLowerCase()),
+          ))
       )
       setFilteredCustomers(filtered)
     } else {
@@ -45,9 +44,7 @@ export function CustomersView() {
   const loadCustomers = async () => {
     try {
       setLoading(true)
-      // Simular carregamento
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      const data = getMockCustomers()
+      const data = await getCustomers()
       setCustomers(data)
       setFilteredCustomers(data)
     } catch (error) {
@@ -59,13 +56,11 @@ export function CustomersView() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "active":
+      case "ativo":
         return "bg-green-100 text-green-800 border-green-200"
-      case "inactive":
+      case "inativo":
         return "bg-gray-100 text-gray-800 border-gray-200"
-      case "potential":
-        return "bg-blue-100 text-blue-800 border-blue-200"
-      case "lost":
+      case "devedor":
         return "bg-red-100 text-red-800 border-red-200"
       default:
         return "bg-gray-100 text-gray-800 border-gray-200"
@@ -74,14 +69,12 @@ export function CustomersView() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "active":
+      case "ativo":
         return "Ativo"
-      case "inactive":
+      case "inativo":
         return "Inativo"
-      case "potential":
-        return "Potencial"
-      case "lost":
-        return "Perdido"
+      case "devedor":
+        return "Devedor"
       default:
         return status
     }
@@ -94,6 +87,17 @@ export function CustomersView() {
       .join("")
       .toUpperCase()
       .slice(0, 2)
+  }
+
+  const handleDeleteCustomer = async (customerId: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir este cliente?")) return
+    try {
+      await deleteCustomer(customerId)
+      setCustomers((prev) => prev.filter((c) => c.id !== customerId))
+      setFilteredCustomers((prev) => prev.filter((c) => c.id !== customerId))
+    } catch (error) {
+      alert("Erro ao excluir cliente. Tente novamente.")
+    }
   }
 
   if (loading) {
@@ -156,7 +160,7 @@ export function CustomersView() {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Clientes Ativos</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {customers.filter((c) => c.status === "active").length}
+                  {customers.filter((c) => c.status === "ativo").length}
                 </p>
               </div>
             </div>
@@ -171,7 +175,7 @@ export function CustomersView() {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Potenciais</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {customers.filter((c) => c.status === "potential").length}
+                  {customers.filter((c) => c.status === "potencial").length}
                 </p>
               </div>
             </div>
@@ -186,7 +190,10 @@ export function CustomersView() {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Total de Carros</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {customers.reduce((total, customer) => total + (customer.cars?.length || 0), 0)}
+                  {customers.reduce((total, customer) => {
+                    const cars = Array.isArray((customer as any).cars) ? (customer as any).cars : []
+                    return total + cars.length
+                  }, 0)}
                 </p>
               </div>
             </div>

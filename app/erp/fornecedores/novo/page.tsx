@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
-import { createMockSupplier } from "@/lib/mock-data"
+import { createSupplier } from "@/lib/supabase-queries"
 import Link from "next/link"
 
 export default function NovoFornecedorPage() {
@@ -41,20 +41,17 @@ export default function NovoFornecedorPage() {
     updated_at: new Date().toISOString(),
   })
 
-  const handleInputChange = (field: string, value: any) => {
-    if (field.includes(".")) {
+  const handleInputChange = (field: keyof typeof formData | string, value: any) => {
+    if (typeof field === 'string' && field.includes(".")) {
       const [parent, child] = field.split(".")
       setFormData((prev) => ({
         ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value,
-        },
+        [parent]: { ...(prev[parent as keyof typeof prev] as object), [child]: value },
       }))
     } else {
       setFormData((prev) => ({
         ...prev,
-        [field]: value,
+        [field as keyof typeof prev]: value,
       }))
     }
   }
@@ -69,8 +66,16 @@ export default function NovoFornecedorPage() {
         throw new Error("Nome do fornecedor é obrigatório")
       }
 
-      // Criar fornecedor
-      const newSupplier = await createMockSupplier(formData)
+      // Criar fornecedor no Supabase
+      const newSupplier = await createSupplier({
+        name: formData.name,
+        document: formData.document,
+        email: formData.email,
+        phone: formData.phone,
+        contact_person: formData.contact_person,
+        address: formData.address,
+        is_active: formData.is_active,
+      })
 
       toast({
         title: "Fornecedor criado com sucesso!",
@@ -78,7 +83,7 @@ export default function NovoFornecedorPage() {
       })
 
       // Redirecionar para a página de detalhes
-      router.push(`/erp/fornecedores/${newSupplier.id}`)
+      router.push(`/erp/fornecedores/${newSupplier?.id}`)
     } catch (error: any) {
       console.error("Erro ao criar fornecedor:", error)
       toast({

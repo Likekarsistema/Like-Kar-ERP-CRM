@@ -1,41 +1,71 @@
-import { createSupabaseClient } from "./supabase-client"
+import { createSupabaseClient } from "./supabase"
 
-export interface Product {
+export type Product = {
   id: string
   name: string
   description?: string
   sku: string
-  barcode?: string
   category_id?: string
   supplier_id?: string
   brand?: string
   model?: string
   cost_price: number
   sale_price: number
-  markup_percentage?: number
   current_stock: number
   min_stock: number
   max_stock: number
   unit_of_measure: string
-  weight?: number
-  length?: number
-  width?: number
-  height?: number
-  status: "ativo" | "inativo" | "descontinuado"
-  is_deleted: boolean
-  deleted_at?: string
-  deleted_by?: string
-  images: string[]
-  main_image_url?: string
-  tags?: string[]
-  notes?: string
-  created_at: string
-  updated_at: string
-  created_by?: string
-  updated_by?: string
-  // Relacionamentos
-  category?: ProductCategory
-  supplier?: Supplier
+  status: string
+  is_deleted?: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+const supabase = createSupabaseClient()
+
+export async function getProducts(): Promise<Product[]> {
+  const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false })
+  if (error) {
+    console.error("Erro ao buscar produtos:", error)
+    return []
+  }
+  return data as Product[]
+}
+
+export async function getProductById(id: string): Promise<Product | null> {
+  const { data, error } = await supabase.from("products").select("*").eq("id", id).single()
+  if (error) {
+    console.error("Erro ao buscar produto:", error)
+    return null
+  }
+  return data as Product
+}
+
+export async function createProduct(product: Omit<Product, "id" | "created_at" | "updated_at">): Promise<Product | null> {
+  const { data, error } = await supabase.from("products").insert(product).select().single()
+  if (error) {
+    console.error("Erro ao criar produto:", error)
+    return null
+  }
+  return data as Product
+}
+
+export async function updateProduct(id: string, updates: Partial<Product>): Promise<Product | null> {
+  const { data, error } = await supabase.from("products").update(updates).eq("id", id).select().single()
+  if (error) {
+    console.error("Erro ao atualizar produto:", error)
+    return null
+  }
+  return data as Product
+}
+
+export async function deleteProduct(id: string): Promise<boolean> {
+  const { error } = await supabase.from("products").delete().eq("id", id)
+  if (error) {
+    console.error("Erro ao deletar produto:", error)
+    return false
+  }
+  return true
 }
 
 export interface ProductCategory {
@@ -78,8 +108,6 @@ export interface StockMovement {
   // Relacionamentos
   product?: Product
 }
-
-const supabase = createSupabaseClient()
 
 // Funções para Produtos
 export async function getProducts(includeDeleted = false) {

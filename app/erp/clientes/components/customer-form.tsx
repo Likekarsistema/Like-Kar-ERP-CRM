@@ -13,6 +13,7 @@ import { Plus, Trash2, ArrowLeft } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { createMockCustomer, addCarToCustomer } from "@/lib/mock-data"
+import { createCustomer } from "@/lib/supabase-customers"
 
 interface CarFormData {
   vehicle_type: "carro" | "moto" | "caminhao"
@@ -155,29 +156,14 @@ export function CustomerForm() {
         notes: "",
       }
 
-      // Usar a função do mock-data diretamente
-      const createdCustomer = createMockCustomer(newCustomer)
+      // Usar a função do Supabase
+      const createdCustomer = await createCustomer(newCustomer)
+      if (!createdCustomer) throw new Error("Erro ao criar cliente no banco de dados.")
       console.log("Cliente criado:", createdCustomer)
 
-      // Adicionar apenas carros válidos
-      const validCars = cars.filter((car) => car.brand && car.model && car.license_plate && car.color)
-
-      for (const car of validCars) {
-        try {
-          const carData = {
-            vehicle_type: car.vehicle_type,
-            brand: car.brand,
-            model: car.model,
-            license_plate: car.license_plate,
-            color: car.color,
-            year: car.year,
-          }
-
-          addCarToCustomer(createdCustomer.id, carData)
-        } catch (carError) {
-          console.error("Erro ao adicionar carro:", carError)
-        }
-      }
+      // Adicionar apenas carros válidos (futuro: implementar integração com carros)
+      // const validCars = cars.filter((car) => car.brand && car.model && car.license_plate && car.color)
+      // for (const car of validCars) { ... }
 
       toast({
         title: "Sucesso",

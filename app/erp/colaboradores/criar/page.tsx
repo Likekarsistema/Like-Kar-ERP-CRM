@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Save, Eye, EyeOff, Users } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
+import { supabase } from "@/lib/supabase"
 
 export default function CreateCollaboratorPage() {
   const router = useRouter()
@@ -52,16 +53,42 @@ export default function CreateCollaboratorPage() {
 
     setLoading(true)
 
-    // Simular criação
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.name,
+            role: formData.role,
+          },
+        },
+      })
 
-    toast({
-      title: "Sucesso!",
-      description: `Colaborador ${formData.name} criado com sucesso.`,
-    })
+      if (error) {
+        toast({
+          title: "Erro ao criar colaborador",
+          description: error.message,
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
 
-    setLoading(false)
-    router.push("/erp/colaboradores")
+      toast({
+        title: "Sucesso!",
+        description: `Colaborador ${formData.name} criado com sucesso. Verifique o e-mail para ativação da conta.`,
+      })
+      setLoading(false)
+      router.push("/erp/colaboradores")
+    } catch (err: any) {
+      toast({
+        title: "Erro ao criar colaborador",
+        description: err.message || "Erro inesperado.",
+        variant: "destructive",
+      })
+      setLoading(false)
+    }
   }
 
   return (

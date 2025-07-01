@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast"
 import { getProductCategories, getProductSubcategories } from "@/lib/mock-data"
 import Link from "next/link"
+import { createProduct } from "@/lib/supabase-products"
+import type { ProductCategory } from "@/lib/supabase-products"
 
 export default function CreateProductPage() {
   const router = useRouter()
@@ -35,9 +37,9 @@ export default function CreateProductPage() {
     status: "ativo",
   })
 
-  const [categories, setCategories] = useState([])
-  const [subcategories, setSubcategories] = useState([])
-  const [filteredSubcategories, setFilteredSubcategories] = useState([])
+  const [categories, setCategories] = useState<ProductCategory[]>([])
+  const [subcategories, setSubcategories] = useState<any[]>([])
+  const [filteredSubcategories, setFilteredSubcategories] = useState<any[]>([])
 
   useEffect(() => {
     setCategories(getProductCategories())
@@ -63,18 +65,27 @@ export default function CreateProductPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-
     try {
-      // Aqui você faria a chamada para a API do Supabase
-      // Por enquanto, vou simular um delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
+      // Criar produto no Supabase
+      const newProduct = {
+        name: formData.name,
+        sku: formData.sku,
+        description: formData.description,
+        category_id: formData.category,
+        brand: formData.brand,
+        cost_price: Number(formData.cost),
+        sale_price: Number(formData.price),
+        current_stock: Number(formData.stock),
+        min_stock: Number(formData.minStock),
+        max_stock: Number(formData.maxStock),
+        unit_of_measure: "UN",
+        status: formData.status,
+      }
+      await createProduct(newProduct)
       toast({
         title: "Produto criado com sucesso!",
         description: "O produto foi adicionado ao catálogo.",
       })
-
-      // Redirecionar de volta para a lista de produtos
       router.push("/erp/produtos")
     } catch (error) {
       console.error("Erro ao criar produto:", error)

@@ -20,12 +20,12 @@ import {
 import { toast } from "@/hooks/use-toast"
 import { AdvancedSupplierFilters } from "./components/advanced-supplier-filters"
 import { SupplierTable } from "./components/supplier-table"
-import { getMockSuppliers, deleteMockSupplier, deleteMultipleSuppliers } from "@/lib/mock-data"
+import { getSuppliers, deleteSupplier, Supplier } from "@/lib/supabase-queries"
 import Link from "next/link"
 
 export default function FornecedoresPage() {
   const [loading, setLoading] = useState(true)
-  const [suppliers, setSuppliers] = useState([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([])
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -48,7 +48,7 @@ export default function FornecedoresPage() {
   const loadSuppliers = async () => {
     setLoading(true)
     try {
-      const data = getMockSuppliers()
+      const data = await getSuppliers()
       setSuppliers(data)
     } catch (error) {
       console.error("Erro ao buscar fornecedores:", error)
@@ -87,14 +87,11 @@ export default function FornecedoresPage() {
 
   const handleDelete = async () => {
     if (!supplierToDelete) return
-
     setIsDeleting(true)
     try {
-      await deleteMockSupplier(supplierToDelete)
-
-      setSuppliers((prevSuppliers) => prevSuppliers.filter((supplier) => supplier.id !== supplierToDelete))
+      await deleteSupplier(supplierToDelete)
+      setSuppliers((prevSuppliers) => prevSuppliers.filter((supplier: Supplier) => supplier.id !== supplierToDelete))
       setSelectedSuppliers((prev) => prev.filter((id) => id !== supplierToDelete))
-
       toast({
         title: "Fornecedor excluído",
         description: "O fornecedor foi excluído com sucesso.",

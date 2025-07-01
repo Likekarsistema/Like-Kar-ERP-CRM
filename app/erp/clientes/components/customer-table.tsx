@@ -7,7 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
-import type { Customer } from "@/lib/mock-data"
+import type { Customer } from "@/lib/supabase-customers"
 
 interface CustomerTableProps {
   customers: Customer[]
