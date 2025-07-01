@@ -89,7 +89,7 @@ export async function signInAction(prevState: any, formData: FormData) {
 
       return {
         success: true,
-        redirectTo: "/crm/dashboard",
+        redirectTo: "/erp/dashboard",
         message: "Login realizado com sucesso!",
       }
     }

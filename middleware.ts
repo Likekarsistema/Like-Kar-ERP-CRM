@@ -10,14 +10,14 @@ export function middleware(request: NextRequest) {
   // If accessing root path, redirect based on auth status
   if (pathname === "/") {
     if (token) {
-      return NextResponse.redirect(new URL("/crm/dashboard", request.url))
+      return NextResponse.redirect(new URL("/erp/dashboard", request.url))
     } else {
       return NextResponse.redirect(new URL("/auth/login", request.url))
     }
   }
 
   // Protected routes that require authentication
-  const protectedRoutes = ["/crm", "/dashboard", "/minha-conta", "/financeiro"]
+  const protectedRoutes = ["/erp", "/dashboard", "/minha-conta", "/financeiro"]
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
 
   // Auth routes that should redirect if already logged in
@@ -29,11 +29,6 @@ export function middleware(request: NextRequest) {
     const loginUrl = new URL("/auth/login", request.url)
     loginUrl.searchParams.set("redirect", pathname)
     return NextResponse.redirect(loginUrl)
-  }
-
-  // If trying to access auth routes with token, redirect to dashboard
-  if (isAuthRoute && token) {
-    return NextResponse.redirect(new URL("/crm/dashboard", request.url))
   }
 
   return NextResponse.next()
