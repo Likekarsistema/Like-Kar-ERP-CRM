@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -16,24 +16,108 @@ import {
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Search, DollarSign, Clock, CheckCircle, AlertTriangle } from "lucide-react"
-import {
-  getAccountsPayable,
-  createAccountPayable,
-  updateAccountPayable,
-  type AccountPayable,
-} from "@/lib/supabase-accounts"
-import { getSuppliers } from "@/lib/supabase-queries"
-import { toast } from "@/hooks/use-toast"
+import { Search, MoreHorizontal, Eye, Edit, Check, Calendar, Filter, Printer, Trash2, ChevronDown } from "lucide-react"
+
+interface AccountPayable {
+  id: string
+  supplier_name: string
+  invoice_number: string
+  description: string
+  payment_method: string
+  due_date: string
+  issue_date: string
+  amount: number
+  status: "pending" | "paid" | "overdue" | "cancelled"
+  category: string
+}
+
+// Mock data para fornecedores
+const mockSuppliers = [
+  { id: "1", name: "FORNECEDOR ABC LTDA" },
+  { id: "2", name: "DISTRIBUIDORA XYZ LTDA" },
+  { id: "3", name: "MATERIAIS CONSTRUÇÃO SILVA" },
+  { id: "4", name: "COMERCIAL SANTOS & CIA" },
+]
+
+// Mock data para categorias financeiras
+const mockCategories = [
+  { id: "1", name: "Fornecedores", type: "despesa" },
+  { id: "2", name: "Salários e Encargos", type: "despesa" },
+  { id: "3", name: "Aluguel", type: "despesa" },
+  { id: "4", name: "Marketing e Publicidade", type: "despesa" },
+]
+
+// Mock data inicial
+const initialAccounts: AccountPayable[] = [
+  {
+    id: "1",
+    supplier_name: "FORNECEDOR ABC LTDA",
+    invoice_number: "FAT-001",
+    description: "Ref. ao pedido de compra nº 1176",
+    payment_method: "CONTAS A PAGAR/RECEBER",
+    due_date: "2025-06-01",
+    issue_date: "2025-05-15",
+    amount: 856.2,
+    status: "overdue",
+    category: "Fornecedores",
+  },
+  {
+    id: "2",
+    supplier_name: "DISTRIBUIDORA XYZ LTDA",
+    invoice_number: "FAT-002",
+    description: "Ref. ao pedido de compra nº 1339",
+    payment_method: "CONTAS A PAGAR/RECEBER",
+    due_date: "2025-05-04",
+    issue_date: "2025-04-20",
+    amount: 389.79,
+    status: "overdue",
+    category: "Fornecedores",
+  },
+  {
+    id: "3",
+    supplier_name: "GENERAL 222 INFINITY LTDA",
+    invoice_number: "FAT-003",
+    description: "Ref. ao pedido de compra nº 1397",
+    payment_method: "CONTAS A PAGAR/RECEBER",
+    due_date: "2025-05-13",
+    issue_date: "2025-04-28",
+    amount: 3371.56,
+    status: "overdue",
+    category: "Fornecedores",
+  },
+  {
+    id: "4",
+    supplier_name: "MARCO ANTONIO DA SILVA COMPONENTES ELETRONICOS LTDA",
+    invoice_number: "FAT-004",
+    description: "Ref. ao pedido de compra nº 1368",
+    payment_method: "CONTAS A PAGAR/RECEBER",
+    due_date: "2025-05-23",
+    issue_date: "2025-05-08",
+    amount: 1140.0,
+    status: "overdue",
+    category: "Fornecedores",
+  },
+  {
+    id: "5",
+    supplier_name: "CAZELLI AUTO SOM PEÇAS E ACESSORIOS LTDA",
+    invoice_number: "FAT-005",
+    description: "Ref. ao pedido de compra nº 1445",
+    payment_method: "CONTAS A PAGAR/RECEBER",
+    due_date: "2025-06-09",
+    issue_date: "2025-05-25",
+    amount: 10425.0,
+    status: "overdue",
+    category: "Fornecedores",
+  },
+]
 
 export default function ContasPagarPage() {
-  const [accounts, setAccounts] = useState<AccountPayable[]>([])
-  const [suppliers, setSuppliers] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [accounts, setAccounts] = useState<AccountPayable[]>(initialAccounts)
+  const [filteredAccounts, setFilteredAccounts] = useState<AccountPayable[]>(initialAccounts)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [financialCategories, setFinancialCategories] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
 
   const [newAccount, setNewAccount] = useState({
     supplier_id: "",
@@ -46,43 +130,58 @@ export default function ContasPagarPage() {
     category_id: "",
   })
 
+  // Filtrar contas baseado na busca
   useEffect(() => {
-    loadData()
-  }, [])
+    let filtered = accounts
 
-  const loadData = async () => {
-    try {
-      setLoading(true)
-      const [accountsData, suppliersData] = await Promise.all([getAccountsPayable(), getSuppliers()])
-      setAccounts(accountsData)
-      setSuppliers(suppliersData)
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (account) =>
+          account.supplier_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          account.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          account.description.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+    }
 
-      // Mock financial categories
-      setFinancialCategories([
-        { id: "1", name: "Fornecedores", type: "despesa" },
-        { id: "2", name: "Salários e Encargos", type: "despesa" },
-        { id: "3", name: "Aluguel", type: "despesa" },
-        { id: "4", name: "Marketing e Publicidade", type: "despesa" },
-      ])
-    } catch (error) {
-      console.error("Erro ao carregar dados:", error)
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar dados das contas a pagar",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
+    setFilteredAccounts(filtered)
+  }, [searchTerm, accounts])
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedAccounts(filteredAccounts.map((account) => account.id))
+    } else {
+      setSelectedAccounts([])
+    }
+  }
+
+  const handleSelectAccount = (accountId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedAccounts([...selectedAccounts, accountId])
+    } else {
+      setSelectedAccounts(selectedAccounts.filter((id) => id !== accountId))
     }
   }
 
   const handleCreateAccount = async () => {
     try {
-      await createAccountPayable(newAccount)
-      toast({
-        title: "Sucesso",
-        description: "Conta a pagar criada com sucesso",
-      })
+      setLoading(true)
+      const supplier = mockSuppliers.find((s) => s.id === newAccount.supplier_id)
+      const category = mockCategories.find((c) => c.id === newAccount.category_id)
+
+      const account: AccountPayable = {
+        id: Date.now().toString(),
+        supplier_name: supplier?.name || "",
+        invoice_number: newAccount.invoice_number,
+        description: newAccount.description,
+        payment_method: "CONTAS A PAGAR/RECEBER",
+        due_date: newAccount.due_date,
+        issue_date: newAccount.issue_date,
+        amount: newAccount.amount,
+        status: newAccount.status,
+        category: category?.name || "",
+      }
+
+      setAccounts([...accounts, account])
       setIsCreateDialogOpen(false)
       setNewAccount({
         supplier_id: "",
@@ -94,99 +193,91 @@ export default function ContasPagarPage() {
         status: "pending",
         category_id: "",
       })
-      loadData()
     } catch (error) {
       console.error("Erro ao criar conta:", error)
-      toast({
-        title: "Erro",
-        description: "Erro ao criar conta a pagar",
-        variant: "destructive",
-      })
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleMarkAsPaid = async (id: string) => {
-    try {
-      await updateAccountPayable(id, {
-        status: "paid",
-        payment_date: new Date().toISOString(),
-      })
-      toast({
-        title: "Sucesso",
-        description: "Conta marcada como paga",
-      })
-      loadData()
-    } catch (error) {
-      console.error("Erro ao atualizar conta:", error)
-      toast({
-        title: "Erro",
-        description: "Erro ao atualizar conta",
-        variant: "destructive",
-      })
-    }
+  const handleMarkAsPaid = (id: string) => {
+    setAccounts(accounts.map((account) => (account.id === id ? { ...account, status: "paid" as const } : account)))
   }
 
-  const filteredAccounts = accounts.filter((account) => {
-    const matchesSearch =
-      account.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.suppliers?.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value)
+  }
 
-    const matchesStatus = statusFilter === "all" || account.status === statusFilter
-
-    return matchesSearch && matchesStatus
-  })
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("pt-BR")
+  }
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "paid":
-        return <Badge className="bg-green-100 text-green-800">Pago</Badge>
+        return <Badge className="bg-green-100 text-green-800 border-green-200">Pago</Badge>
       case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800">Pendente</Badge>
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Pendente</Badge>
       case "overdue":
-        return <Badge className="bg-red-100 text-red-800">Vencido</Badge>
+        return <Badge className="bg-red-100 text-red-800 border-red-200">Atrasada</Badge>
       case "cancelled":
-        return <Badge className="bg-gray-100 text-gray-800">Cancelado</Badge>
+        return <Badge className="bg-gray-100 text-gray-800 border-gray-200">Cancelado</Badge>
       default:
         return <Badge>{status}</Badge>
     }
   }
 
-  const totalPayable = accounts.reduce(
-    (sum, account) => (account.status === "pending" || account.status === "overdue" ? sum + account.amount : sum),
-    0,
-  )
-  const totalOverdue = accounts.reduce((sum, account) => (account.status === "overdue" ? sum + account.amount : sum), 0)
-  const totalPaid = accounts.reduce((sum, account) => (account.status === "paid" ? sum + account.amount : sum), 0)
+  return (
+    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Contas a pagar</h1>
+        </div>
 
-  if (loading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm" className="h-9 w-9 p-0 bg-transparent">
+            <Printer className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 w-9 p-0 bg-transparent"
+            disabled={selectedAccounts.length === 0}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
-    )
-  }
 
-  return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Contas a Pagar</h1>
-          <p className="text-muted-foreground">Gerencie suas contas a pagar</p>
+      {/* Filtros */}
+      <div className="flex items-center space-x-4">
+        <Button variant="outline" className="flex items-center space-x-2 bg-white">
+          <Filter className="h-4 w-4" />
+          <ChevronDown className="h-4 w-4" />
+        </Button>
+
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            placeholder="Pesquise por nome, e-mail, CPF/CNPJ, número ou histórico"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-white"
+          />
         </div>
+
+        <Button variant="outline" className="flex items-center space-x-2 text-gray-600 border-gray-300 bg-white">
+          <Calendar className="h-4 w-4" />
+          <span>01/06/2025 até 31/07/2025</span>
+        </Button>
+
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Conta
-            </Button>
+            <Button className="bg-yellow-500 hover:bg-yellow-600 text-white">Nova Conta</Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
@@ -204,7 +295,7 @@ export default function ContasPagarPage() {
                     <SelectValue placeholder="Selecione um fornecedor" />
                   </SelectTrigger>
                   <SelectContent>
-                    {suppliers.map((supplier) => (
+                    {mockSuppliers.map((supplier) => (
                       <SelectItem key={supplier.id} value={supplier.id}>
                         {supplier.name}
                       </SelectItem>
@@ -269,7 +360,7 @@ export default function ContasPagarPage() {
                     <SelectValue placeholder="Selecione uma categoria" />
                   </SelectTrigger>
                   <SelectContent>
-                    {financialCategories
+                    {mockCategories
                       .filter((cat) => cat.type === "despesa")
                       .map((category) => (
                         <SelectItem key={category.id} value={category.id}>
@@ -284,135 +375,90 @@ export default function ContasPagarPage() {
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleCreateAccount}>Criar Conta</Button>
+              <Button onClick={handleCreateAccount} disabled={loading} className="bg-yellow-500 hover:bg-yellow-600">
+                {loading ? "Criando..." : "Criar Conta"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total a Pagar</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              R$ {totalPayable.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Contas Vencidas</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              R$ {totalOverdue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Pago</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              R$ {totalPaid.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Contas</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{accounts.length}</div>
-          </CardContent>
-        </Card>
+      {/* Tabela */}
+      <div className="bg-white rounded-lg shadow-sm border">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b bg-gray-50">
+              <tr>
+                <th className="p-4 text-left w-12">
+                  <Checkbox
+                    checked={selectedAccounts.length === filteredAccounts.length && filteredAccounts.length > 0}
+                    onCheckedChange={handleSelectAll}
+                    className="data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
+                  />
+                </th>
+                <th className="p-4 text-left font-medium text-gray-700">Fornecedor</th>
+                <th className="p-4 text-left font-medium text-gray-700">Histórico</th>
+                <th className="p-4 text-left font-medium text-gray-700">Forma de pagamento</th>
+                <th className="p-4 text-left font-medium text-gray-700">Vencimento</th>
+                <th className="p-4 text-left font-medium text-gray-700">Valor</th>
+                <th className="p-4 text-left font-medium text-gray-700">Situação</th>
+                <th className="p-4 text-left font-medium text-gray-700">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAccounts.map((account) => (
+                <tr key={account.id} className="border-b hover:bg-gray-50">
+                  <td className="p-4">
+                    <Checkbox
+                      checked={selectedAccounts.includes(account.id)}
+                      onCheckedChange={(checked) => handleSelectAccount(account.id, checked as boolean)}
+                      className="data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
+                    />
+                  </td>
+                  <td className="p-4">
+                    <div className="font-medium text-sm text-gray-900">{account.supplier_name}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer">
+                      {account.description}
+                    </div>
+                  </td>
+                  <td className="p-4 text-sm text-gray-600">{account.payment_method}</td>
+                  <td className="p-4 text-sm text-gray-600">{formatDate(account.due_date)}</td>
+                  <td className="p-4 text-sm font-medium text-gray-900">{formatCurrency(account.amount)}</td>
+                  <td className="p-4">{getStatusBadge(account.status)}</td>
+                  <td className="p-4">
+                    <div className="flex items-center space-x-1">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-100">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-100">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 hover:bg-gray-100"
+                        onClick={() => handleMarkAsPaid(account.id)}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-100">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Filtros */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por fornecedor, fatura ou descrição..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="pending">Pendente</SelectItem>
-                <SelectItem value="paid">Pago</SelectItem>
-                <SelectItem value="overdue">Vencido</SelectItem>
-                <SelectItem value="cancelled">Cancelado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabela de Contas */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Contas a Pagar</CardTitle>
-          <CardDescription>Lista de todas as contas a pagar</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">Fatura</th>
-                  <th className="text-left p-2">Fornecedor</th>
-                  <th className="text-left p-2">Descrição</th>
-                  <th className="text-left p-2">Valor</th>
-                  <th className="text-left p-2">Vencimento</th>
-                  <th className="text-left p-2">Status</th>
-                  <th className="text-left p-2">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAccounts.map((account) => (
-                  <tr key={account.id} className="border-b">
-                    <td className="p-2 font-medium">{account.invoice_number}</td>
-                    <td className="p-2">{account.suppliers?.name}</td>
-                    <td className="p-2">{account.description}</td>
-                    <td className="p-2">R$ {account.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="p-2">{new Date(account.due_date).toLocaleDateString("pt-BR")}</td>
-                    <td className="p-2">{getStatusBadge(account.status)}</td>
-                    <td className="p-2">
-                      {account.status === "pending" && (
-                        <Button size="sm" onClick={() => handleMarkAsPaid(account.id)}>
-                          Marcar como Pago
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Resumo */}
+      <div className="text-sm text-gray-500">
+        Mostrando {filteredAccounts.length} de {accounts.length} contas
+      </div>
     </div>
   )
 }
