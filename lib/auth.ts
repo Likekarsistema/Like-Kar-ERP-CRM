@@ -32,7 +32,7 @@ export async function requireNoAuth() {
   const session = await getSession()
 
   if (session) {
-    redirect("/erp/dashboard")
+    redirect("/crm/dashboard")
   }
 
   return null

@@ -1,32 +1,31 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
-  Search,
-  Calendar,
-  Filter,
-  Printer,
-  Trash2,
-  Plus,
-  ChevronDown,
-  MoreHorizontal,
-  Eye,
-  Edit,
-  Check,
-} from "lucide-react"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { Plus, Search, DollarSign, Clock, CheckCircle, AlertTriangle } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 
 interface AccountPayable {
   id: string
   supplier_name: string
   invoice_number: string
   description: string
-  payment_method: string
-  due_date: string
   amount: number
+  due_date: string
   status: "pending" | "paid" | "overdue" | "cancelled"
 }
 
@@ -34,239 +33,316 @@ interface AccountPayable {
 const initialAccounts: AccountPayable[] = [
   {
     id: "1",
-    supplier_name: "FORNECEDOR ABC LTDA",
+    supplier_name: "Fornecedor ABC Ltda",
     invoice_number: "FAT-001",
-    description: "Ref. ao pedido de compra nº 001",
-    payment_method: "CONTAS A PAGAR/RECEBER",
-    due_date: "2025-07-15",
+    description: "Compra de materiais",
     amount: 1500.0,
+    due_date: "2025-07-15",
     status: "pending",
   },
   {
     id: "2",
-    supplier_name: "DISTRIBUIDORA XYZ LTDA",
+    supplier_name: "Distribuidora XYZ",
     invoice_number: "FAT-002",
-    description: "Ref. ao pedido de compra nº 002",
-    payment_method: "CONTAS A PAGAR/RECEBER",
-    due_date: "2025-06-10",
+    description: "Produtos para revenda",
     amount: 2800.0,
+    due_date: "2025-06-10",
     status: "overdue",
-  },
-  {
-    id: "3",
-    supplier_name: "MATERIAIS CONSTRUÇÃO SILVA",
-    invoice_number: "FAT-003",
-    description: "Ref. ao pedido de compra nº 003",
-    payment_method: "CONTAS A PAGAR/RECEBER",
-    due_date: "2025-08-20",
-    amount: 950.75,
-    status: "pending",
   },
 ]
 
 export default function ContasPagarPage() {
   const [accounts, setAccounts] = useState<AccountPayable[]>(initialAccounts)
-  const [filteredAccounts, setFilteredAccounts] = useState<AccountPayable[]>(initialAccounts)
+  const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
   const [newAccount, setNewAccount] = useState({
     supplier_name: "",
-    amount: "",
-    issue_date: new Date().toISOString().split("T")[0],
-    due_date: "",
+    invoice_number: "",
     description: "",
-    payment_method: "",
-    category: "",
+    amount: 0,
+    issue_date: "",
+    due_date: "",
     status: "pending" as const,
   })
 
-  // Filtrar contas baseado na busca
-  useEffect(() => {
-    let filtered = accounts
+  const handleCreateAccount = async () => {
+    try {
+      const accountData: AccountPayable = {
+        id: Date.now().toString(),
+        supplier_name: newAccount.supplier_name,
+        invoice_number: newAccount.invoice_number,
+        description: newAccount.description,
+        amount: newAccount.amount,
+        due_date: newAccount.due_date,
+        status: newAccount.status,
+      }
 
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (account) =>
-          account.supplier_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          account.invoice_number.includes(searchTerm) ||
-          account.description.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
+      setAccounts([accountData, ...accounts])
+
+      toast({
+        title: "Sucesso",
+        description: "Conta a pagar criada com sucesso",
+      })
+
+      setIsCreateDialogOpen(false)
+      setNewAccount({
+        supplier_name: "",
+        invoice_number: "",
+        description: "",
+        amount: 0,
+        issue_date: "",
+        due_date: "",
+        status: "pending",
+      })
+    } catch (error) {
+      console.error("Erro ao criar conta:", error)
+      toast({
+        title: "Erro",
+        description: "Erro ao criar conta a pagar",
+        variant: "destructive",
+      })
     }
-
-    setFilteredAccounts(filtered)
-  }, [searchTerm, accounts])
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedAccounts(filteredAccounts.map((account) => account.id))
-    } else {
-      setSelectedAccounts([])
-    }
   }
 
-  const handleSelectAccount = (accountId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedAccounts([...selectedAccounts, accountId])
-    } else {
-      setSelectedAccounts(selectedAccounts.filter((id) => id !== accountId))
-    }
-  }
+  const filteredAccounts = accounts.filter((account) => {
+    const matchesSearch =
+      account.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      account.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      account.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value)
-  }
+    const matchesStatus = statusFilter === "all" || account.status === statusFilter
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("pt-BR")
-  }
+    return matchesSearch && matchesStatus
+  })
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "overdue":
-        return (
-          <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
-            Atrasada
-          </Badge>
-        )
-      case "pending":
-        return (
-          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
-            Pendente
-          </Badge>
-        )
       case "paid":
-        return (
-          <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-            Paga
-          </Badge>
-        )
+        return <Badge className="bg-green-100 text-green-800">Pago</Badge>
+      case "pending":
+        return <Badge className="bg-yellow-100 text-yellow-800">Pendente</Badge>
+      case "overdue":
+        return <Badge className="bg-red-100 text-red-800">Vencido</Badge>
+      case "cancelled":
+        return <Badge className="bg-gray-100 text-gray-800">Cancelado</Badge>
       default:
-        return <Badge variant="secondary">{status}</Badge>
+        return <Badge>{status}</Badge>
     }
   }
 
+  const totalPayable = accounts.reduce(
+    (sum, account) => (account.status === "pending" || account.status === "overdue" ? sum + account.amount : sum),
+    0,
+  )
+  const totalOverdue = accounts.reduce((sum, account) => (account.status === "overdue" ? sum + account.amount : sum), 0)
+  const totalPaid = accounts.reduce((sum, account) => (account.status === "paid" ? sum + account.amount : sum), 0)
+
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Contas a Pagar</h1>
-          <p className="text-gray-600">Gerencie suas contas a pagar</p>
+          <h1 className="text-3xl font-bold">Contas a Pagar</h1>
+          <p className="text-muted-foreground">Gerencie suas contas a pagar</p>
         </div>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-yellow-500 hover:bg-yellow-600">
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Conta
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Nova Conta a Pagar</DialogTitle>
+              <DialogDescription>Crie uma nova conta a pagar para um fornecedor.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="supplier_name">Fornecedor</Label>
+                <Input
+                  id="supplier_name"
+                  value={newAccount.supplier_name}
+                  onChange={(e) => setNewAccount({ ...newAccount, supplier_name: e.target.value })}
+                  placeholder="Nome do fornecedor"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="invoice_number">Número da Fatura</Label>
+                <Input
+                  id="invoice_number"
+                  value={newAccount.invoice_number}
+                  onChange={(e) => setNewAccount({ ...newAccount, invoice_number: e.target.value })}
+                  placeholder="Ex: FAT-001"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Descrição</Label>
+                <Textarea
+                  id="description"
+                  value={newAccount.description}
+                  onChange={(e) => setNewAccount({ ...newAccount, description: e.target.value })}
+                  placeholder="Descrição da conta"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="amount">Valor</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  value={newAccount.amount}
+                  onChange={(e) => setNewAccount({ ...newAccount, amount: Number.parseFloat(e.target.value) || 0 })}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="due_date">Data de Vencimento</Label>
+                <Input
+                  id="due_date"
+                  type="date"
+                  value={newAccount.due_date}
+                  onChange={(e) => setNewAccount({ ...newAccount, due_date: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleCreateAccount} className="bg-yellow-500 hover:bg-yellow-600">
+                Criar Conta
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm">
-            <Printer className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" disabled={selectedAccounts.length === 0}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
-          <Button className="bg-yellow-500 hover:bg-yellow-600 text-white">
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Conta
-          </Button>
-        </div>
+      {/* Cards de Resumo */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total a Pagar</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              R$ {totalPayable.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Contas Vencidas</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              R$ {totalOverdue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Pago</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              R$ {totalPaid.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Contas</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{accounts.length}</div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filtros */}
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" className="flex items-center space-x-2 bg-transparent">
-          <Filter className="h-4 w-4" />
-          <ChevronDown className="h-4 w-4" />
-        </Button>
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por fornecedor, fatura ou descrição..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="pending">Pendente</SelectItem>
+                <SelectItem value="paid">Pago</SelectItem>
+                <SelectItem value="overdue">Vencido</SelectItem>
+                <SelectItem value="cancelled">Cancelado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Pesquise por nome, e-mail, CNPJ, número ou histórico"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        <Button
-          variant="outline"
-          className="flex items-center space-x-2 text-yellow-600 border-yellow-500 bg-transparent"
-        >
-          <Calendar className="h-4 w-4" />
-          <span>01/06/2025 até 31/07/2025</span>
-        </Button>
-      </div>
-
-      {/* Tabela */}
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="border-b bg-gray-50">
-              <tr>
-                <th className="p-4 text-left">
-                  <Checkbox
-                    checked={selectedAccounts.length === filteredAccounts.length && filteredAccounts.length > 0}
-                    onCheckedChange={handleSelectAll}
-                    className="data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
-                  />
-                </th>
-                <th className="p-4 text-left font-medium text-gray-700">Fornecedor</th>
-                <th className="p-4 text-left font-medium text-gray-700">Histórico</th>
-                <th className="p-4 text-left font-medium text-gray-700">Forma de pagamento</th>
-                <th className="p-4 text-left font-medium text-gray-700">Vencimento</th>
-                <th className="p-4 text-left font-medium text-gray-700">Valor</th>
-                <th className="p-4 text-left font-medium text-gray-700">Situação</th>
-                <th className="p-4 text-left font-medium text-gray-700">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAccounts.map((account) => (
-                <tr key={account.id} className="border-b">
-                  <td className="p-4">
-                    <Checkbox
-                      checked={selectedAccounts.includes(account.id)}
-                      onCheckedChange={(checked) => handleSelectAccount(account.id, checked as boolean)}
-                      className="data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
-                    />
-                  </td>
-                  <td className="p-4">
-                    <div className="font-medium text-sm text-gray-900">{account.supplier_name}</div>
-                  </td>
-                  <td className="p-4 text-sm text-gray-600">{account.description}</td>
-                  <td className="p-4 text-sm text-gray-600">{account.payment_method}</td>
-                  <td className="p-4 text-sm text-gray-600">{formatDate(account.due_date)}</td>
-                  <td className="p-4 text-sm font-medium text-gray-900">{formatCurrency(account.amount)}</td>
-                  <td className="p-4">{getStatusBadge(account.status)}</td>
-                  <td className="p-4">
-                    <div className="flex items-center space-x-1">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </td>
+      {/* Tabela de Contas */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Contas a Pagar</CardTitle>
+          <CardDescription>Lista de todas as contas a pagar</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2">Fatura</th>
+                  <th className="text-left p-2">Fornecedor</th>
+                  <th className="text-left p-2">Descrição</th>
+                  <th className="text-left p-2">Valor</th>
+                  <th className="text-left p-2">Vencimento</th>
+                  <th className="text-left p-2">Status</th>
+                  <th className="text-left p-2">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Resumo */}
-      <div className="text-sm text-gray-500">
-        Mostrando {filteredAccounts.length} de {accounts.length} contas
-      </div>
+              </thead>
+              <tbody>
+                {filteredAccounts.map((account) => (
+                  <tr key={account.id} className="border-b">
+                    <td className="p-2 font-medium">{account.invoice_number}</td>
+                    <td className="p-2">{account.supplier_name}</td>
+                    <td className="p-2">{account.description}</td>
+                    <td className="p-2">R$ {account.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="p-2">{new Date(account.due_date).toLocaleDateString("pt-BR")}</td>
+                    <td className="p-2">{getStatusBadge(account.status)}</td>
+                    <td className="p-2">
+                      {account.status === "pending" && (
+                        <Button size="sm" className="bg-green-500 hover:bg-green-600">
+                          Marcar como Pago
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
