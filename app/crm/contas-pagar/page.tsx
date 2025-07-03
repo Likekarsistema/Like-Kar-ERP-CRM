@@ -21,83 +21,26 @@ import {
   Edit,
   Check,
   X,
-  Info,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-
-interface AccountPayable {
-  id: string
-  supplier_name: string
-  invoice_number: string
-  description: string
-  payment_method: string
-  due_date: string
-  amount: number
-  status: "pending" | "paid" | "overdue" | "cancelled"
-}
-
-// Mock data inicial
-const initialAccounts: AccountPayable[] = [
-  {
-    id: "1",
-    supplier_name: "FORNECEDOR ABC LTDA",
-    invoice_number: "FAT-001",
-    description: "Ref. à compra de materiais",
-    payment_method: "CONTAS A PAGAR/RECEBER",
-    due_date: "2025-06-02",
-    amount: 1256.5,
-    status: "overdue",
-  },
-  {
-    id: "2",
-    supplier_name: "DISTRIBUIDORA XYZ S/A",
-    invoice_number: "FAT-002",
-    description: "Ref. à compra de produtos",
-    payment_method: "CONTAS A PAGAR/RECEBER",
-    due_date: "2025-05-05",
-    amount: 2389.79,
-    status: "overdue",
-  },
-  {
-    id: "3",
-    supplier_name: "COMERCIAL 123 LTDA",
-    invoice_number: "FAT-003",
-    description: "Ref. à prestação de serviços",
-    payment_method: "CONTAS A PAGAR/RECEBER",
-    due_date: "2025-05-14",
-    amount: 871.56,
-    status: "overdue",
-  },
-  {
-    id: "4",
-    supplier_name: "INDUSTRIA COMPONENTES ELETRONICOS LTDA",
-    invoice_number: "FAT-004",
-    description: "Ref. à compra de componentes",
-    payment_method: "CONTAS A PAGAR/RECEBER",
-    due_date: "2025-05-24",
-    amount: 3140.0,
-    status: "overdue",
-  },
-  {
-    id: "5",
-    supplier_name: "SERVICOS GERAIS E MANUTENCAO LTDA",
-    invoice_number: "FAT-005",
-    description: "Ref. à manutenção de equipamentos",
-    payment_method: "CONTAS A PAGAR/RECEBER",
-    due_date: "2025-06-10",
-    amount: 5425.0,
-    status: "pending",
-  },
-]
+import {
+  getAccountsPayable,
+  createAccountPayable,
+  updateAccountPayable,
+  type AccountPayable,
+} from "@/lib/supabase-accounts"
+import { getSuppliers } from "@/lib/supabase-queries"
 
 export default function ContasPagarPage() {
-  const [accounts, setAccounts] = useState<AccountPayable[]>(initialAccounts)
-  const [filteredAccounts, setFilteredAccounts] = useState<AccountPayable[]>(initialAccounts)
+  const [accounts, setAccounts] = useState<AccountPayable[]>([])
+  const [suppliers, setSuppliers] = useState<any[]>([])
+  const [filteredAccounts, setFilteredAccounts] = useState<AccountPayable[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [supplierSuggestions, setSupplierSuggestions] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [supplierSuggestions, setSupplierSuggestions] = useState<any[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [financialCategories, setFinancialCategories] = useState<any[]>([
     { id: "1", name: "Fornecedores", type: "despesa" },
@@ -106,44 +49,53 @@ export default function ContasPagarPage() {
     { id: "4", name: "Marketing e Publicidade", type: "despesa" },
   ])
 
-  // Adicione este console.log logo após a declaração do estado isSidebarOpen
-  console.log("isSidebarOpen:", isSidebarOpen)
-
   const [newAccount, setNewAccount] = useState({
+    supplier_id: "",
     supplier_name: "",
     amount: "",
     issue_date: new Date().toISOString().split("T")[0],
     due_date: "",
     description: "",
-    payment_method: "",
+    invoice_number: "",
     category: "",
     status: "pending" as const,
   })
 
-  const searchSuppliers = (searchTerm: string) => {
-    // Simulando fornecedores cadastrados no sistema (você pode buscar da API real)
-    const mockSuppliers = [
-      "FORNECEDOR ABC LTDA",
-      "DISTRIBUIDORA XYZ S/A",
-      "COMERCIAL 123 LTDA",
-      "INDUSTRIA COMPONENTES ELETRONICOS LTDA",
-      "SERVICOS GERAIS E MANUTENCAO LTDA",
-      "MATERIAIS DE CONSTRUCAO SILVA",
-      "EQUIPAMENTOS TECNICOS SANTOS",
-      "FORNECEDORA OLIVEIRA & CIA",
-      "DISTRIBUIDORA COSTA LTDA",
-      "COMERCIO PEREIRA LTDA",
-    ]
+  // Carregar dados iniciais
+  useEffect(() => {
+    loadData()
+  }, [])
 
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      const [accountsData, suppliersData] = await Promise.all([getAccountsPayable(), getSuppliers()])
+
+      setAccounts(accountsData)
+      setSuppliers(suppliersData)
+      setFilteredAccounts(accountsData)
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error)
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar dados das contas a pagar",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const searchSuppliers = (searchTerm: string) => {
     if (searchTerm.length < 2) {
       setSupplierSuggestions([])
       setShowSuggestions(false)
       return
     }
 
-    const filtered = mockSuppliers.filter((supplier) => supplier.toLowerCase().includes(searchTerm.toLowerCase()))
+    const filtered = suppliers.filter((supplier) => supplier.name.toLowerCase().includes(searchTerm.toLowerCase()))
 
-    setSupplierSuggestions(filtered.slice(0, 5)) // Mostrar apenas 5 sugestões
+    setSupplierSuggestions(filtered.slice(0, 5))
     setShowSuggestions(filtered.length > 0)
   }
 
@@ -154,8 +106,8 @@ export default function ContasPagarPage() {
     if (searchTerm) {
       filtered = filtered.filter(
         (account) =>
-          account.supplier_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          account.invoice_number.includes(searchTerm) ||
+          account.suppliers?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          account.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
           account.description.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
@@ -181,12 +133,13 @@ export default function ContasPagarPage() {
 
   const resetForm = () => {
     setNewAccount({
+      supplier_id: "",
       supplier_name: "",
       amount: "",
       issue_date: new Date().toISOString().split("T")[0],
       due_date: "",
       description: "",
-      payment_method: "",
+      invoice_number: "",
       category: "",
       status: "pending",
     })
@@ -194,10 +147,10 @@ export default function ContasPagarPage() {
 
   const handleCreateAccount = async () => {
     // Validação dos campos obrigatórios
-    if (!newAccount.supplier_name.trim()) {
+    if (!newAccount.supplier_id) {
       toast({
         title: "Erro",
-        description: "Por favor, informe o nome do fornecedor",
+        description: "Por favor, selecione um fornecedor",
         variant: "destructive",
       })
       return
@@ -221,35 +174,41 @@ export default function ContasPagarPage() {
       return
     }
 
+    if (!newAccount.invoice_number.trim()) {
+      toast({
+        title: "Erro",
+        description: "Por favor, informe o número da fatura",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
-      // Simular delay de API
-      await new Promise((resolve) => setTimeout(resolve, 800))
-
-      const newAccountData: AccountPayable = {
-        id: Date.now().toString(),
-        supplier_name: newAccount.supplier_name.trim(),
-        invoice_number: `FAT-${Date.now().toString().slice(-4)}`,
-        description: newAccount.description.trim() || `Ref. à fatura nº FAT-${Date.now().toString().slice(-4)}`,
-        payment_method: newAccount.payment_method || "CONTAS A PAGAR/RECEBER",
-        due_date: newAccount.due_date,
+      const accountData = {
+        supplier_id: newAccount.supplier_id,
+        invoice_number: newAccount.invoice_number.trim(),
+        description: newAccount.description.trim() || `Ref. à fatura nº ${newAccount.invoice_number}`,
         amount: Number.parseFloat(newAccount.amount.replace(",", ".")),
+        issue_date: newAccount.issue_date,
+        due_date: newAccount.due_date,
         status: newAccount.status,
       }
 
-      // Adicionar nova conta ao início da lista
-      setAccounts([newAccountData, ...accounts])
+      await createAccountPayable(accountData)
 
       toast({
         title: "Sucesso!",
-        description: `Conta a pagar criada com sucesso`,
+        description: "Conta a pagar criada com sucesso",
       })
 
-      // Reset form e fechar sidebar
+      // Recarregar dados e fechar sidebar
+      await loadData()
       resetForm()
       setIsSidebarOpen(false)
     } catch (error) {
+      console.error("Erro ao criar conta:", error)
       toast({
         title: "Erro",
         description: "Erro ao criar conta a pagar. Tente novamente.",
@@ -260,14 +219,28 @@ export default function ContasPagarPage() {
     }
   }
 
-  const handleMarkAsPaid = (accountId: string) => {
-    setAccounts(
-      accounts.map((account) => (account.id === accountId ? { ...account, status: "paid" as const } : account)),
-    )
-    toast({
-      title: "Sucesso",
-      description: "Conta marcada como paga!",
-    })
+  const handleMarkAsPaid = async (accountId: string) => {
+    try {
+      await updateAccountPayable(accountId, {
+        status: "paid",
+        payment_date: new Date().toISOString(),
+      })
+
+      toast({
+        title: "Sucesso",
+        description: "Conta marcada como paga!",
+      })
+
+      // Recarregar dados
+      await loadData()
+    } catch (error) {
+      console.error("Erro ao atualizar conta:", error)
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar conta",
+        variant: "destructive",
+      })
+    }
   }
 
   const formatCurrency = (value: number) => {
@@ -301,9 +274,27 @@ export default function ContasPagarPage() {
             Paga
           </Badge>
         )
+      case "cancelled":
+        return (
+          <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-gray-200">
+            Cancelada
+          </Badge>
+        )
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="h-10 bg-gray-200 rounded"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -341,7 +332,7 @@ export default function ContasPagarPage() {
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
-            placeholder="Pesquise por fornecedor, e-mail, CNPJ, número ou histórico"
+            placeholder="Pesquise por fornecedor, número da fatura ou descrição"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 bg-white border-gray-300"
@@ -351,15 +342,12 @@ export default function ContasPagarPage() {
         {/* Filtro de data - COR AMARELA */}
         <Button variant="outline" className="flex items-center space-x-2 text-yellow-600 border-yellow-500 bg-white">
           <Calendar className="h-4 w-4" />
-          <span>01/06/2025 até 31/07/2025</span>
+          <span>Filtrar por data</span>
         </Button>
 
         {/* Botão Nova Conta - COR AMARELA E FUNCIONAL */}
         <Button
-          onClick={() => {
-            console.log("Botão Nova Conta clicado") // Debug
-            setIsSidebarOpen(true)
-          }}
+          onClick={() => setIsSidebarOpen(true)}
           className="flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-600 text-white"
         >
           <Plus className="h-4 w-4" />
@@ -381,8 +369,8 @@ export default function ContasPagarPage() {
                   />
                 </th>
                 <th className="p-4 text-left font-medium text-gray-700">Fornecedor</th>
-                <th className="p-4 text-left font-medium text-gray-700">Histórico</th>
-                <th className="p-4 text-left font-medium text-gray-700">Forma de pagamento</th>
+                <th className="p-4 text-left font-medium text-gray-700">Nº Fatura</th>
+                <th className="p-4 text-left font-medium text-gray-700">Descrição</th>
                 <th className="p-4 text-left font-medium text-gray-700">Vencimento</th>
                 <th className="p-4 text-left font-medium text-gray-700">Valor</th>
                 <th className="p-4 text-left font-medium text-gray-700">Situação</th>
@@ -391,7 +379,7 @@ export default function ContasPagarPage() {
             </thead>
             <tbody>
               {filteredAccounts.map((account) => (
-                <tr key={account.id} className="border-b">
+                <tr key={account.id} className="border-b hover:bg-gray-50">
                   <td className="p-4">
                     <Checkbox
                       checked={selectedAccounts.includes(account.id)}
@@ -400,10 +388,11 @@ export default function ContasPagarPage() {
                     />
                   </td>
                   <td className="p-4">
-                    <div className="font-medium text-sm text-gray-900">{account.supplier_name}</div>
+                    <div className="font-medium text-sm text-gray-900">{account.suppliers?.name || "N/A"}</div>
+                    <div className="text-xs text-gray-500">{account.suppliers?.email}</div>
                   </td>
-                  <td className="p-4 text-sm text-gray-600">{account.description}</td>
-                  <td className="p-4 text-sm text-gray-600">{account.payment_method}</td>
+                  <td className="p-4 text-sm font-medium text-gray-900">{account.invoice_number}</td>
+                  <td className="p-4 text-sm text-gray-600 max-w-xs truncate">{account.description}</td>
                   <td className="p-4 text-sm text-gray-600">{formatDate(account.due_date)}</td>
                   <td className="p-4 text-sm font-medium text-gray-900">{formatCurrency(account.amount)}</td>
                   <td className="p-4">{getStatusBadge(account.status)}</td>
@@ -415,15 +404,17 @@ export default function ContasPagarPage() {
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => handleMarkAsPaid(account.id)}
-                        disabled={account.status === "paid"}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
+                      {account.status === "pending" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                          onClick={() => handleMarkAsPaid(account.id)}
+                          title="Marcar como pago"
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
@@ -434,6 +425,10 @@ export default function ContasPagarPage() {
             </tbody>
           </table>
         </div>
+
+        {filteredAccounts.length === 0 && (
+          <div className="text-center py-8 text-gray-500">Nenhuma conta a pagar encontrada</div>
+        )}
       </div>
 
       {/* Resumo */}
@@ -451,7 +446,7 @@ export default function ContasPagarPage() {
           <div className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl z-50 overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white sticky top-0 z-10">
-              <h2 className="text-xl font-semibold text-gray-900">Conta a pagar</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Nova Conta a Pagar</h2>
               <Button
                 variant="ghost"
                 size="sm"
@@ -468,14 +463,14 @@ export default function ContasPagarPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-end">
                 <div className="space-y-2 relative">
                   <Label htmlFor="supplier_name" className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    Fornecedor <Info className="h-4 w-4 text-blue-500" />
+                    Fornecedor <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
                     <Input
                       id="supplier_name"
                       value={newAccount.supplier_name}
                       onChange={(e) => {
-                        setNewAccount({ ...newAccount, supplier_name: e.target.value })
+                        setNewAccount({ ...newAccount, supplier_name: e.target.value, supplier_id: "" })
                         searchSuppliers(e.target.value)
                       }}
                       onFocus={() => {
@@ -484,7 +479,6 @@ export default function ContasPagarPage() {
                         }
                       }}
                       onBlur={() => {
-                        // Delay para permitir clique na sugestão
                         setTimeout(() => setShowSuggestions(false), 200)
                       }}
                       placeholder="Digite o nome do fornecedor..."
@@ -494,16 +488,21 @@ export default function ContasPagarPage() {
                     {/* Lista de sugestões */}
                     {showSuggestions && supplierSuggestions.length > 0 && (
                       <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
-                        {supplierSuggestions.map((supplier, index) => (
+                        {supplierSuggestions.map((supplier) => (
                           <div
-                            key={index}
+                            key={supplier.id}
                             className="px-4 py-2 hover:bg-yellow-50 cursor-pointer text-sm border-b border-gray-100 last:border-b-0"
                             onClick={() => {
-                              setNewAccount({ ...newAccount, supplier_name: supplier })
+                              setNewAccount({
+                                ...newAccount,
+                                supplier_name: supplier.name,
+                                supplier_id: supplier.id,
+                              })
                               setShowSuggestions(false)
                             }}
                           >
-                            {supplier}
+                            <div className="font-medium">{supplier.name}</div>
+                            {supplier.email && <div className="text-xs text-gray-500">{supplier.email}</div>}
                           </div>
                         ))}
                       </div>
@@ -525,11 +524,25 @@ export default function ContasPagarPage() {
                 </div>
               </div>
 
-              {/* Segunda linha - Datas */}
+              {/* Segunda linha - Número da Fatura */}
+              <div className="space-y-2">
+                <Label htmlFor="invoice_number" className="text-sm font-medium text-gray-700">
+                  Número da Fatura <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="invoice_number"
+                  value={newAccount.invoice_number}
+                  onChange={(e) => setNewAccount({ ...newAccount, invoice_number: e.target.value })}
+                  placeholder="Ex: FAT-001"
+                  className="border-gray-300 focus:border-yellow-500 focus:ring-yellow-500"
+                />
+              </div>
+
+              {/* Terceira linha - Datas */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="issue_date" className="text-sm font-medium text-gray-700">
-                    Emissão <span className="text-red-500">*</span>
+                    Data de Emissão <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="issue_date"
@@ -542,7 +555,7 @@ export default function ContasPagarPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="due_date" className="text-sm font-medium text-gray-700">
-                    Vencimento <span className="text-red-500">*</span>
+                    Data de Vencimento <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="due_date"
@@ -554,65 +567,42 @@ export default function ContasPagarPage() {
                 </div>
               </div>
 
-              {/* Histórico */}
+              {/* Descrição */}
               <div className="space-y-2">
                 <Label htmlFor="description" className="text-sm font-medium text-gray-700">
-                  Histórico
+                  Descrição
                 </Label>
                 <Textarea
                   id="description"
                   value={newAccount.description}
                   onChange={(e) => setNewAccount({ ...newAccount, description: e.target.value })}
-                  placeholder="Descrição da conta..."
-                  className="h-24 border-yellow-300 focus:border-yellow-500 focus:ring-yellow-500 resize-none"
+                  placeholder="Descrição da conta a pagar..."
+                  className="h-24 border-gray-300 focus:border-yellow-500 focus:ring-yellow-500 resize-none"
                 />
               </div>
 
-              {/* Campos de Pagamento - sem tabs */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="payment_method" className="text-sm font-medium text-gray-700">
-                    Forma de Pagamento
-                  </Label>
-                  <Select
-                    value={newAccount.payment_method}
-                    onValueChange={(value) => setNewAccount({ ...newAccount, payment_method: value })}
-                  >
-                    <SelectTrigger className="border-gray-300 focus:border-yellow-500 focus:ring-yellow-500">
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CONTAS A PAGAR/RECEBER">CONTAS A PAGAR/RECEBER</SelectItem>
-                      <SelectItem value="DINHEIRO">DINHEIRO</SelectItem>
-                      <SelectItem value="CARTÃO">CARTÃO</SelectItem>
-                      <SelectItem value="PIX">PIX</SelectItem>
-                      <SelectItem value="BOLETO">BOLETO</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category" className="text-sm font-medium text-gray-700">
-                    Categoria
-                  </Label>
-                  <Select
-                    value={newAccount.category}
-                    onValueChange={(value) => setNewAccount({ ...newAccount, category: value })}
-                  >
-                    <SelectTrigger className="border-gray-300 focus:border-yellow-500 focus:ring-yellow-500">
-                      <SelectValue placeholder="Sem categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {financialCategories
-                        .filter((cat) => cat.type === "despesa")
-                        .map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Categoria */}
+              <div className="space-y-2">
+                <Label htmlFor="category" className="text-sm font-medium text-gray-700">
+                  Categoria
+                </Label>
+                <Select
+                  value={newAccount.category}
+                  onValueChange={(value) => setNewAccount({ ...newAccount, category: value })}
+                >
+                  <SelectTrigger className="border-gray-300 focus:border-yellow-500 focus:ring-yellow-500">
+                    <SelectValue placeholder="Selecione uma categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {financialCategories
+                      .filter((cat) => cat.type === "despesa")
+                      .map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Botões de ação */}
